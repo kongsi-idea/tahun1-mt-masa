@@ -1,0 +1,4 @@
+.vercel
+.DS_Store
+.playwright-output/
+node_modules/

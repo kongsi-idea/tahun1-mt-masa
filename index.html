@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>时刻大对决 · 一年级数学</title>
+
+<!-- 字体：三层分工（详见 DESIGN.md §4）。Google Fonts 对中文字体有 unicode-range 分片，
+     实际只下载用到的那几片；display=swap 让文字先用系统字显示，教室网速慢也不会空白 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Noto+Sans+SC:wght@400;500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+
+<!-- React（照 teaching-tools 现行单档工具惯例，不用 build 工具） -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- kelasku：网址带 ?code= 时自动读班级名单；读不到会自动 fallback 成手动输入名字 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://kongsi-idea.vercel.app/data/supabase-client.js"></script>
+<script src="https://kongsi-idea.vercel.app/data/class-code-client.js"></script>
+
+<style>
+/* ============================================================
+   美术方向：实体教具 / 玩具质感
+   完整规格与技法见 ../_style-lab/STYLES.md 的「07 · 实体教具」
+   核心想法：一年级学生课堂上真的摸过实体教具钟，所以屏幕上这个钟
+   要看起来像「可以伸手去转的实体教具」，而不是一张扁平插画。
+   ⚠️ 刻意不放任何角色/吉祥物——手拼的角色只会拉低质感（见 memory
+   feedback-dont-hand-assemble-illustrations）。质感全靠材质、光影、
+   舞台构图撑起来。
+   ============================================================ */
+:root{
+  color-scheme:light;                /* 教室投影是亮环境，锁定浅色 */
+
+  /* 木纹 */
+  --wood-50:#FBF1E4;  --wood-200:#E8C39E; --wood-400:#C68958;
+  --wood-600:#8B5A2B; --wood-700:#6E4522; --wood-900:#37220F; --wood-950:#241609;
+  /* 软胶 · 蓝队 */
+  --blue-100:#DCEBFF; --blue-300:#7FB2F5; --blue-500:#2E86DE;
+  --blue-600:#1B66B3; --blue-700:#124C8A; --blue-900:#0B3560;
+  /* 软胶 · 红队 */
+  --coral-100:#FFE1E6; --coral-300:#F58FA0; --coral-500:#E8546B;
+  --coral-600:#C23B54; --coral-700:#942B40; --coral-900:#611B29;
+  /* 金属与金 */
+  --metal-100:#F1F3F5; --metal-500:#9AA2AC; --metal-900:#454A54;
+  --gold-300:#FCE39B;  --gold-500:#E8B23D;  --gold-700:#A5731F;
+  /* 语义 */
+  --ok:#4CAF60; --ok-deep:#245C31; --ok-ghost:#3F9142;
+  --warn:#E8A33D; --warn-deep:#8A5518;
+
+  /* 语义别名（沿用旧命名，改皮肤时只要改这一段） */
+  --surface:var(--wood-50);
+  --border:var(--wood-400);
+  --accent:var(--gold-500);
+  --accent-soft:#FFF6E2;
+  --p1-main:var(--blue-500);   --p1-strong:var(--blue-700); --p1-zone:#EFF6FF; --p1-on:#FFFFFF;
+  --p2-main:var(--coral-500);  --p2-strong:var(--coral-700);--p2-zone:#FFF1F3; --p2-on:#FFFFFF;
+  --ok-bg:#E4F6E7;  --ok-text:#2E7D3C;
+  --bad-bg:#FDECD8; --bad-text:#9C5A14;
+  --text:#3B2716;         /* 深棕墨，不用纯黑 */
+  --text-2:#7C6349;
+
+  --r-card:20px;
+  --r-pill:999px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{min-height:100%}
+body{min-height:100%;margin:0}
+/* 桌面：深胡桃木刨纹（板缝 + 横向木纹 + 整体明暗），主体用浅枫木，
+   靠材质深浅让操作区「浮」出来当主角 */
+body{
+  background:
+    repeating-linear-gradient(90deg, transparent 0 116px,
+      rgba(0,0,0,.34) 116px 119px, rgba(255,255,255,.035) 119px 121px, transparent 121px 238px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 2px, transparent 2px 5px),
+    radial-gradient(120% 90% at 50% 0%, #4A2E17 0%, #2B1A0C 55%, #1A0F06 100%);
+  background-attachment:fixed;
+  background-color:#1A0F06;      /* fixed 背景在超过一个视窗高时铺不满，用底色兜住 */
+  color:var(--text);
+  font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  font-weight:500;
+  overscroll-behavior:none;
+}
+#root{min-height:100%}
+.num{font-family:"Baloo 2","Noto Sans SC",sans-serif;font-weight:800;font-variant-numeric:tabular-nums}
+.display{font-family:"ZCOOL KuaiLe","Noto Sans SC","Microsoft YaHei",sans-serif;font-weight:400}
+
+/* ---------- 木板面板：斜面 + 厚度 + 接触阴影 ---------- */
+.wood{
+  background:
+    linear-gradient(0deg, rgba(139,90,43,.16) 0 100%),
+    repeating-linear-gradient(0deg, rgba(139,90,43,.05) 0 3px, transparent 3px 7px),
+    linear-gradient(165deg, var(--wood-50) 0%, #F3E1CB 45%, var(--wood-200) 100%);
+  border-radius:var(--r-card);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.85),          /* 顶部斜面高光 */
+    inset 0 -4px 8px rgba(110,69,34,.32),         /* 底部内暗角 */
+    0 3px 0 var(--wood-600),                      /* 板厚 */
+    0 7px 0 var(--wood-700),
+    0 12px 4px rgba(0,0,0,.45),                   /* 贴地的窄深接触阴影 */
+    0 22px 34px rgba(0,0,0,.42);                  /* 更大更淡的漂浮阴影 */
+}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 34px}
+.card{
+  background:
+    linear-gradient(0deg, rgba(139,90,43,.16) 0 100%),
+    repeating-linear-gradient(0deg, rgba(139,90,43,.05) 0 3px, transparent 3px 7px),
+    linear-gradient(165deg, var(--wood-50) 0%, #F3E1CB 45%, var(--wood-200) 100%);
+  border-radius:var(--r-card);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.85), inset 0 -4px 8px rgba(110,69,34,.32),
+    0 3px 0 var(--wood-600), 0 7px 0 var(--wood-700),
+    0 12px 4px rgba(0,0,0,.45), 0 22px 34px rgba(0,0,0,.42);
+}
+
+/* ---------- 软胶按钮：圆柱受光 + 实体厚度 ---------- */
+.btn{
+  font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.08rem;
+  border:none;border-radius:var(--r-pill);padding:15px 28px;cursor:pointer;color:#fff;
+  background:linear-gradient(180deg, var(--gold-300) 0%, var(--gold-500) 46%, var(--gold-700) 100%);
+  text-shadow:0 1px 0 rgba(0,0,0,.28);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.65),
+    inset 0 -3px 6px rgba(0,0,0,.22),
+    0 5px 0 #7A520F, 0 9px 12px rgba(0,0,0,.42);
+  transition:transform .06s ease, box-shadow .06s ease;
+  touch-action:manipulation;
+}
+.btn:active{transform:translateY(5px);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.5), inset 0 -2px 5px rgba(0,0,0,.24), 0 0 0 #7A520F, 0 2px 5px rgba(0,0,0,.4)}
+.btn:disabled{filter:saturate(.35) brightness(.94);opacity:.75;cursor:not-allowed;
+  transform:translateY(4px);box-shadow:inset 0 -2px 5px rgba(0,0,0,.2), 0 1px 0 #7A520F}
+.btn.big{font-size:1.45rem;padding:19px 44px}
+.btn.ghost{background:linear-gradient(180deg,#F6E9D6,#DDC5A3);color:var(--wood-700);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.8), inset 0 -3px 6px rgba(110,69,34,.25), 0 4px 0 var(--wood-600), 0 8px 11px rgba(0,0,0,.35)}
+.btn.ghost:active{transform:translateY(4px);box-shadow:inset 0 -2px 5px rgba(110,69,34,.25), 0 0 0 var(--wood-600)}
+.btn.sun{background:linear-gradient(180deg,var(--blue-300) 0%, var(--blue-500) 46%, var(--blue-700) 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.55), inset 0 -3px 6px rgba(0,0,0,.25), 0 5px 0 var(--blue-900), 0 9px 12px rgba(0,0,0,.42)}
+.btn.sun:active{transform:translateY(5px);box-shadow:inset 0 -2px 5px rgba(0,0,0,.25), 0 0 0 var(--blue-900)}
+.btn.moon{background:linear-gradient(180deg,var(--coral-300) 0%, var(--coral-500) 46%, var(--coral-700) 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.55), inset 0 -3px 6px rgba(0,0,0,.25), 0 5px 0 var(--coral-900), 0 9px 12px rgba(0,0,0,.42)}
+.btn.moon:active{transform:translateY(5px);box-shadow:inset 0 -2px 5px rgba(0,0,0,.25), 0 0 0 var(--coral-900)}
+
+/* ---------- 顶栏：挂在墙上的木牌 ---------- */
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.brand{
+  font-size:1.5rem;line-height:1.15;color:var(--wood-50);padding:10px 22px;border-radius:14px;
+  background:linear-gradient(180deg,#7A4A22 0%, #5A3418 55%, #3C2210 100%);
+  text-shadow:0 2px 0 rgba(0,0,0,.45);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.22), inset 0 -3px 7px rgba(0,0,0,.4),
+             0 4px 0 #2A180B, 0 10px 16px rgba(0,0,0,.5);
+}
+.brand small{display:block;font-family:"Baloo 2",sans-serif;font-size:.62rem;font-weight:700;
+  color:var(--gold-300);letter-spacing:2.4px;text-shadow:none;opacity:.9}
+.spacer{flex:1}
+.iconbtn{
+  width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;flex:none;
+  display:grid;place-items:center;
+  background:linear-gradient(180deg,#F6E9D6,#D9BE99);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.85), inset 0 -3px 6px rgba(110,69,34,.3),
+             0 4px 0 var(--wood-600), 0 8px 12px rgba(0,0,0,.42);
+}
+.iconbtn:active{transform:translateY(4px);box-shadow:inset 0 -2px 5px rgba(110,69,34,.3), 0 0 0 var(--wood-600)}
+
+/* ---------- 队伍标记：软胶圆片（不是角色） ---------- */
+.chip-mark{border-radius:50%;flex:none;display:inline-block}
+.chip-mark.blue{background:radial-gradient(circle at 34% 28%, #AED2FB 0%, #3E8EE0 52%, #124C8A 100%);
+  box-shadow:inset 0 -2px 3px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.4)}
+.chip-mark.coral{background:radial-gradient(circle at 34% 28%, #FBC3CE 0%, #EC6E85 52%, #942B40 100%);
+  box-shadow:inset 0 -2px 3px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.4)}
+
+/* ---------- 开始页 ---------- */
+/* ---------- 开场主视觉 ---------- */
+.hero{padding:44px 32px 40px;display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center}
+.hero-clockwrap{width:min(360px,72vw)}
+.hero-clockwrap .clockbox{max-width:none;cursor:default}
+.hero-tag{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.15rem;color:var(--text);margin:0}
+.hero-cta{min-width:220px}
+@media (max-width:560px){ .hero{padding:32px 20px 30px;gap:16px} }
+
+.setup{padding:26px}
+.setup h2{margin:0 0 6px;font-size:1.4rem;font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-weight:400}
+.hint{color:var(--text-2);font-size:.9rem;line-height:1.75;margin:0 0 18px}
+.hint b{color:var(--text)}
+.modeswitch{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+.modebtn{
+  font:inherit;text-align:left;padding:16px 18px;border-radius:16px;cursor:pointer;border:none;
+  color:var(--text-2);
+  background:linear-gradient(180deg,#FFFCF6,#EADCC4);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 6px rgba(110,69,34,.22), 0 3px 0 var(--wood-400);
+  transition:transform .06s ease
+}
+.modebtn:active{transform:translateY(3px);box-shadow:inset 0 -2px 5px rgba(110,69,34,.22), 0 0 0 var(--wood-400)}
+.modebtn b{display:block;font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-weight:400;font-size:1.18rem;color:var(--text);margin-bottom:3px}
+.modebtn span{display:block;font-size:.8rem;line-height:1.55}
+.modebtn.on{background:linear-gradient(180deg,var(--gold-300),#EFC966 60%,var(--gold-500));
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.7), inset 0 -3px 7px rgba(0,0,0,.2), 0 3px 0 var(--gold-700)}
+.modebtn.on b{color:#4A3208}
+.modebtn.on span{color:#6B4A12}
+
+.players{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pslot{border-radius:16px;padding:16px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.75), inset 0 -3px 7px rgba(0,0,0,.16), 0 3px 0 rgba(0,0,0,.18)}
+.pslot.p1{background:linear-gradient(180deg,#EAF3FF,#CFE2F8)}
+.pslot.p2{background:linear-gradient(180deg,#FFF0F2,#F8D6DC)}
+.pslot label{display:flex;align-items:center;gap:9px;font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.08rem;margin-bottom:10px}
+.pslot input,.pslot select{
+  width:100%;padding:13px;border-radius:var(--r-pill);border:none;font:inherit;font-weight:700;
+  color:var(--text);text-align:center;background:#FFFDF8;
+  box-shadow:inset 0 3px 6px rgba(110,69,34,.3), inset 0 -1px 0 rgba(255,255,255,.9)
+}
+.rosterbox{border-radius:16px;padding:15px 17px;background:linear-gradient(180deg,#FFF9EC,#F0E0C2);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.8), inset 0 -3px 7px rgba(110,69,34,.22)}
+.rosterbox b{display:block;font-size:.97rem;margin-bottom:4px}
+.rosterbox span{display:block;font-size:.83rem;color:var(--text-2);line-height:1.65}
+
+.optrow{display:flex;flex-wrap:wrap;gap:9px}
+.chip{
+  border:none;border-radius:var(--r-pill);padding:11px 18px;font:inherit;font-weight:700;font-size:.9rem;
+  cursor:pointer;color:var(--wood-700);background:linear-gradient(180deg,#FFFCF6,#E6D5B8);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 4px rgba(110,69,34,.2), 0 3px 0 var(--wood-400)
+}
+.chip:active{transform:translateY(3px);box-shadow:inset 0 -2px 4px rgba(110,69,34,.2), 0 0 0 var(--wood-400)}
+.chip.on{color:#fff;background:linear-gradient(180deg,#5CA3EC,#2E86DE 50%,#124C8A);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 5px rgba(0,0,0,.25), 0 3px 0 var(--blue-900)}
+.chip.mini{padding:9px 15px;font-size:.84rem}
+.field{margin-top:22px}
+.field>b{display:block;font-size:.96rem;margin-bottom:2px}
+.field>span{display:block;font-size:.81rem;color:var(--text-2);margin-bottom:10px;line-height:1.65}
+
+/* 「更多设置」折叠开关：视觉权重明显比上面两个教学决定（时刻/怎么说）轻，
+   一眼就能分出「这个默认就好」跟「这个我该想」——这才是解决画面乱的关键，不是折叠本身 */
+.morebtn{
+  width:100%;margin-top:20px;padding:12px 16px;border:none;border-radius:14px;cursor:pointer;
+  display:flex;align-items:center;gap:10px;color:var(--text-2);
+  background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.15));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6), inset 0 -2px 4px rgba(110,69,34,.12);
+}
+.morebtn:active{transform:translateY(1px)}
+.morebtn-l{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:.92rem;color:var(--text);flex:none}
+.morebtn-sum{flex:1;text-align:left;font-size:.78rem;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- 对战画面 ---------- */
+.scorebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:14px}
+.side{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 20px;
+  border-radius:var(--r-pill);min-width:0;
+  background:linear-gradient(180deg,#FFFCF6,#E6D5B8);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9), inset 0 -3px 6px rgba(110,69,34,.25),
+             0 3px 0 var(--wood-600), 0 8px 14px rgba(0,0,0,.4)}
+.side.right{flex-direction:row-reverse}
+.side .who-mini{display:flex;align-items:center;gap:9px;min-width:0}
+.side.right .who-mini{flex-direction:row-reverse}
+.side .nm{font-weight:700;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side .pt{font-size:1.8rem;line-height:1}
+.side.a .pt{color:var(--blue-700)} .side.b .pt{color:var(--coral-700)}
+.roundpill{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:.98rem;color:var(--wood-50);
+  padding:10px 20px;border-radius:var(--r-pill);white-space:nowrap;
+  background:linear-gradient(180deg,#6B421F,#3C2210);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 5px rgba(0,0,0,.4), 0 3px 0 #241609}
+
+/* 题目：刻在木牌上的告示 */
+.question{
+  text-align:center;padding:18px 34px;border-radius:16px;margin:0 auto 16px;
+  width:fit-content;min-width:min(420px,100%);max-width:100%;
+  background:linear-gradient(180deg,#FFF9EC 0%, #F2E2C4 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.9), inset 0 -4px 9px rgba(110,69,34,.3),
+             0 4px 0 var(--wood-600), 0 10px 18px rgba(0,0,0,.45)}
+.question .q-lead{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:.98rem;color:var(--wood-600);letter-spacing:1px;margin-bottom:4px}
+.q-main{font-size:clamp(2.1rem,5.6vw,3.2rem);font-weight:700;line-height:1.35;
+  display:flex;justify-content:center;align-items:flex-end;gap:.05em;
+  color:var(--text);text-shadow:0 1px 0 rgba(255,255,255,.8), 0 -1px 0 rgba(110,69,34,.25)}
+.q-main ruby{ruby-position:over}
+/* 拼音不能用 Baloo 2：那支字型没有 ā / ī 这些一声字母，会掉到别的 fallback */
+.q-main rt{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:.3em;font-weight:600;color:var(--text-2);letter-spacing:.02em;text-shadow:none}
+.q-tools{display:flex;justify-content:center;gap:10px;margin-top:10px}
+
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,2.2vw,24px)}
+.arena.solo{grid-template-columns:minmax(0,520px);justify-content:center}
+.lane{display:flex;flex-direction:column;align-items:center;gap:11px;padding:16px;border-radius:var(--r-card);
+  transition:box-shadow .25s ease;
+  background:
+    repeating-linear-gradient(0deg, rgba(139,90,43,.045) 0 3px, transparent 3px 7px),
+    linear-gradient(165deg, var(--wood-50) 0%, #F3E1CB 48%, var(--wood-200) 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.85), inset 0 -4px 8px rgba(110,69,34,.3),
+             0 3px 0 var(--wood-600), 0 7px 0 var(--wood-700),
+             0 12px 4px rgba(0,0,0,.42), 0 22px 30px rgba(0,0,0,.4)}
+/* 答对/答错用「光晕」而不是刷底色——木头的材质要留着 */
+.lane.ok{box-shadow:inset 0 2px 0 rgba(255,255,255,.85), inset 0 -4px 8px rgba(110,69,34,.3),
+  0 0 0 4px rgba(76,175,96,.85), 0 0 34px 6px rgba(76,175,96,.5),
+  0 3px 0 var(--wood-600), 0 7px 0 var(--wood-700), 0 20px 30px rgba(0,0,0,.4)}
+.lane.bad{box-shadow:inset 0 2px 0 rgba(255,255,255,.85), inset 0 -4px 8px rgba(110,69,34,.3),
+  0 0 0 4px rgba(232,163,61,.85), 0 0 34px 6px rgba(232,163,61,.45),
+  0 3px 0 var(--wood-600), 0 7px 0 var(--wood-700), 0 20px 30px rgba(0,0,0,.4)}
+.lane .who{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.15rem;display:flex;align-items:center;gap:9px}
+.clockbox{width:100%;max-width:460px;aspect-ratio:1;touch-action:none;user-select:none;cursor:pointer;
+  filter:drop-shadow(0 10px 6px rgba(0,0,0,.34)) drop-shadow(0 20px 24px rgba(0,0,0,.3))}
+.clockbox.shake{animation:gentle 1.1s ease-in-out}
+@keyframes gentle{0%,100%{transform:rotate(0)}20%{transform:rotate(-2.5deg)}45%{transform:rotate(2.5deg)}70%{transform:rotate(-1.6deg)}}
+.verdict{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.1rem;min-height:1.6em;text-align:center;line-height:1.5}
+.verdict.ok{color:#2E7D3C} .verdict.bad{color:#9C5A14}
+.lane .btn{width:100%;max-width:460px}
+
+.reveal{margin-top:16px;padding:20px;text-align:center;border-radius:var(--r-card);
+  background:linear-gradient(180deg,#FFF9EC,#F0E0C2);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.85), inset 0 -4px 8px rgba(110,69,34,.28),
+             0 3px 0 var(--wood-600), 0 10px 20px rgba(0,0,0,.45)}
+.reveal .ans{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.45rem;margin-bottom:8px}
+.reveal .note{font-size:.93rem;color:var(--text-2);line-height:1.85;max-width:38em;margin:0 auto}
+.reveal .note b{color:var(--text)}
+.legend{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--text-2);margin-top:10px}
+.legend i{display:inline-block;width:24px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+
+/* ---------- 抽签 ---------- */
+.drawrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;margin:24px 0 8px}
+.drawcard{padding:26px 16px;border-radius:18px;display:flex;flex-direction:column;align-items:center;gap:9px;
+  min-height:180px;justify-content:center;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.8), inset 0 -4px 8px rgba(0,0,0,.18), 0 4px 0 rgba(0,0,0,.22), 0 10px 18px rgba(0,0,0,.35)}
+.drawcard.p1{background:linear-gradient(180deg,#EAF3FF,#C3DBF6)}
+.drawcard.p2{background:linear-gradient(180deg,#FFF0F2,#F6CCD4)}
+.drawcard.rolling .drawname{opacity:.4;filter:blur(.7px)}
+.drawname{font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.8rem;line-height:1.2;text-align:center;word-break:break-all}
+.drawclass{font-size:.82rem;color:var(--text-2)}
+.vs{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:1.9rem;color:var(--wood-50);
+  width:64px;height:64px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 34% 28%, #8C5A2E 0%, #5A3418 55%, #2E1A0A 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.22), inset 0 -3px 7px rgba(0,0,0,.5), 0 4px 0 #1F1207, 0 9px 14px rgba(0,0,0,.5)}
+
+/* ---------- 结算 / 排行榜 ---------- */
+.result{padding:30px;text-align:center}
+.result h2{margin:0 0 6px;font-size:2.05rem;font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-weight:400}
+.finals{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}
+.final{padding:22px;border-radius:18px;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.8), inset 0 -4px 8px rgba(0,0,0,.16), 0 4px 0 rgba(0,0,0,.2)}
+.final.a{background:linear-gradient(180deg,#EAF3FF,#C3DBF6)}
+.final.b{background:linear-gradient(180deg,#FFF0F2,#F6CCD4)}
+.final.win{box-shadow:inset 0 2px 0 rgba(255,255,255,.8), inset 0 -4px 8px rgba(0,0,0,.16),
+  0 0 0 4px rgba(76,175,96,.9), 0 0 28px 5px rgba(76,175,96,.45), 0 4px 0 rgba(0,0,0,.2)}
+.final .fn{display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:"ZCOOL KuaiLe","Noto Sans SC",sans-serif;font-size:1.08rem;margin-bottom:8px}
+.final .fp{font-size:3rem;line-height:1;text-shadow:0 2px 0 rgba(255,255,255,.7)}
+.final .fc{font-size:.87rem;color:var(--text-2);margin-top:8px}
+.clock-t{font-family:"Baloo 2",sans-serif;font-weight:700}
+
+table.board{width:100%;border-collapse:collapse;margin-top:12px}
+table.board th,table.board td{padding:12px 10px;border-bottom:1px solid rgba(110,69,34,.22);text-align:left;font-size:.94rem}
+table.board th{font-size:.78rem;color:var(--text-2);letter-spacing:1px;font-weight:700}
+table.board td.r{text-align:right}
+table.board tr.me{background:linear-gradient(90deg, rgba(232,178,61,.28), rgba(232,178,61,.10))}
+.rank{width:2.4em}
+
+@media (max-width:640px){
+  .wrap{padding:12px 10px 24px}
+  .players{grid-template-columns:1fr}
+  .modeswitch{grid-template-columns:1fr}
+  .lane{padding:11px;gap:11px}
+  .side{padding:8px 14px}
+  .side .nm{font-size:.85rem}
+  .side .pt{font-size:1.35rem}
+  .reveal .ans{font-size:1.18rem}
+  .brand{font-size:1.15rem;padding:8px 14px}
+}
+/* 窄到一定程度就上下叠：390px 手机左右分屏后每个钟只剩 154px 宽，六七岁的手指拖不动 */
+@media (max-width:560px){
+  .arena{grid-template-columns:1fr}
+  .finals{grid-template-columns:1fr}
+  .drawrow{grid-template-columns:1fr;gap:10px}
+  .vs{margin:2px auto}
+}
+</style>
+
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback,useMemo} = React;
+
+/* ================================================================
+   〇、音效
+   用 Web Audio API 直接合成音色，不依赖外部音档——教室网速不稳时
+   不会因为一个 .mp3 载入失败就整块功能坏掉，档案也不会变大。
+   浏览器政策规定音讯要在使用者手势之后才能真正发声，所以第一次
+   pointerdown/click 时才唤醒 AudioContext；静音开关记在 localStorage，
+   隐私浏览模式读写会失败，包一层 try/catch 兜底，不让它炸掉整个工具。
+   ================================================================ */
+const SFX = (()=>{
+  let ctx = null, muted = false;
+  try{ muted = localStorage.getItem('masa_muted')==='1'; }catch(e){}
+
+  const ensure = ()=>{
+    if(ctx) return ctx;
+    try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ ctx=null; }
+    return ctx;
+  };
+  const unlock = ()=>{ const c=ensure(); if(c && c.state==='suspended') c.resume().catch(()=>{}); };
+  window.addEventListener('pointerdown', unlock, {once:true, capture:true});
+
+  function tone(freq, start, dur, type, gain){
+    if(muted) return;
+    const c = ensure(); if(!c) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    const t0 = c.currentTime + start;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gain, t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }
+
+  return {
+    // 拨对：三个音由低到高，轻快上扬
+    correct(){ tone(660,0,.11,'sine',.16); tone(880,.09,.16,'sine',.18); tone(1318,.2,.22,'sine',.14); },
+    // 拨错：两个低音，柔和不刺耳——六七岁的容错心理还在建立，不该有惩罚感
+    wrong(){ tone(320,0,.17,'sine',.11); tone(240,.11,.24,'sine',.09); },
+    // 抽签滚动：短促方波，像转盘咔哒声
+    drawTick(){ tone(700+Math.random()*450, 0, .045, 'square', .05); },
+    // 一局结束：四音小凯歌，不分输赢都放，避免对落败一方显得残忍
+    finish(){ [660,880,1100,1318].forEach((f,i)=>tone(f, i*.09, .18, 'triangle', .13)); },
+    get muted(){ return muted; },
+    setMuted(v){ muted=v; try{ localStorage.setItem('masa_muted', v?'1':'0'); }catch(e){} },
+  };
+})();
+
+/* ================================================================
+   一、题库
+   DSKP Tahun 1 · 5.2 钟面：「确认时针分针」「确认讲述半、一刻、三刻」
+   只出这四种时刻，不出 5 分刻度（那是二年级范围）。
+   ⚠️ 整时的说法是「4 时」，不是「4 时正」——2026-08-13 老师确认现行课本的写法。
+   「一刻/三刻」和「15分/45分」两种说法课本都会出现，所以做成可切换，预设两种混着出，
+   让学生知道这两种讲法指的是同一个时刻。
+   ================================================================ */
+const KINDS = [
+  {id:'oclock',  minute:0,  name:'整时',
+   ke:[{t:'时',p:'shí'}]},
+  {id:'half',    minute:30, name:'半',
+   ke:[{t:'时',p:'shí'},{t:'半',p:'bàn'}]},
+  {id:'quarter', minute:15, name:'一刻',
+   ke:[{t:'时',p:'shí'},{t:'一',p:'yī'},{t:'刻',p:'kè'}]},
+  {id:'three',   minute:45, name:'三刻',
+   ke:[{t:'时',p:'shí'},{t:'三',p:'sān'},{t:'刻',p:'kè'}]},
+];
+const KIND_BY_ID = Object.fromEntries(KINDS.map(k=>[k.id,k]));
+const CN_H = ['','一','二','三','四','五','六','七','八','九','十','十一','十二'];
+const CN_M = {15:'十五',30:'三十',45:'四十五'};
+
+const minuteAngle = (m)=> m*6;                    // 分针：每分钟 6°
+const hourAngle   = (h,m)=> (h%12)*30 + m*0.5;    // 时针：每小时 30°，每过一分钟再多走 0.5°
+
+// 题目的两种说法：'ke'（半/一刻/三刻）、'min'（30分/15分/45分）
+function qTokens(q){
+  const head = [{t:String(q.hour)}];
+  if(q.minute===0) return [...head, {t:'时',p:'shí'}];
+  return q.style==='min'
+    ? [...head, {t:'时',p:'shí'}, {t:String(q.minute)}, {t:'分',p:'fēn'}]
+    : [...head, ...q.kind.ke];
+}
+const qLabel = (q)=> qTokens(q).map(t=>t.t).join('');
+const qSpeech = (q)=> q.minute===0
+  ? `${CN_H[q.hour]}时`
+  : (q.style==='min' ? `${CN_H[q.hour]}时${CN_M[q.minute]}分`
+                     : `${CN_H[q.hour]}时${q.kind.ke.slice(1).map(x=>x.t).join('')}`);
+
+function pickStyle(wording){
+  if(wording==='ke' || wording==='min') return wording;
+  return Math.random()<0.5 ? 'ke' : 'min';       // mix
+}
+function makeQuestion(kindIds, wording){
+  const kind = KIND_BY_ID[kindIds[Math.floor(Math.random()*kindIds.length)]];
+  return {hour:1+Math.floor(Math.random()*12), minute:kind.minute, kind, style:pickStyle(wording)};
+}
+// 每题的起始针位：换到另一个「这次难度下也合法」的时刻，不是乱角度（免得看起来不像钟），
+// 也保证不等于答案，逼学生真的两根针都动
+function makeStart(q, kindIds){
+  for(let i=0;i<80;i++){
+    const k = KIND_BY_ID[kindIds[Math.floor(Math.random()*kindIds.length)]];
+    const h = 1+Math.floor(Math.random()*12);
+    if(!(h===q.hour && k.minute===q.minute)) return {h:hourAngle(h,k.minute), m:minuteAngle(k.minute)};
+  }
+  return {h:0,m:0};
+}
+
+/* ================================================================
+   二、钟面几何与「宽容度」
+   比例照 DESIGN.md §5，viewBox 半径 R=100
+   ================================================================ */
+const R = 100;                                   // 表盘半径
+const RIM = 118;                                 // 木框外缘（表盘之外那一圈实体木头）
+const VB  = 2*RIM + 12;                          // viewBox 边长，留一点给外缘高光
+// 照真实教具钟的读法安排半径：刻度环在最外(88-94)，数字圈让开在 70，
+// 分针要够长才指得到刻度环(82)，但不能压过数字——长度比维持 2:3
+const HOUR_LEN = R*0.55, MIN_LEN = R*0.82;
+// 软胶指针比挂钟指针厚实，粗细比维持约 1.5:1（时针短，用粗补回视觉重量）
+const HOUR_W   = R*0.058, MIN_W  = R*0.038;
+const HOUR_KNOB = HOUR_LEN-23, MIN_KNOB = MIN_LEN-36;   // 握把往回缩，让开数字圈（数字在 0.70R，字高约 17）
+const SNAP_MIN = 30;                             // 分针固定吸附到 5 分刻度（12 个位置，对应钟面数字）
+
+const norm = (a)=>((a%360)+360)%360;
+const angDist = (a,b)=>{ const d=Math.abs(norm(a)-norm(b)); return Math.min(d,360-d); };
+const tipXY = (angle,len)=>{ const r=(angle-90)*Math.PI/180; return [Math.cos(r)*len, Math.sin(r)*len]; };
+
+/* 时针的宽容度分三档。
+   ⚠️ 不能单纯「放宽容差」：四种时刻全开时，时针的合法位置本来就只差 7.5°，
+   容差一超过 3.75° 就会让「一刻」和「整时」互相算对，那不是宽容是判错。
+   所以改成控制「时针能停在哪些位置」——
+   宽松：只停在这次会考到的那几个位置（只勾整时+半的话，全钟只有 24 个停点、相隔 15°，手抖也停得准）
+   标准：停在每一刻（固定 48 档）
+   严格：自由转动，要真的拨准（容差 2°）
+   「答对后自动调整到精确位置」就是靠吸附＋动画完成的。 */
+const LEVELS = [
+  {id:'easy',   name:'宽松', desc:'时针只停在这次会考到的位置，手抖也不会错'},
+  {id:'normal', name:'标准', desc:'时针停在每一刻的位置'},
+  {id:'strict', name:'严格', desc:'时针可以自由转动，要真的拨准'},
+];
+const STRICT_TOL = 2;
+
+function hourStops(kindIds, level){
+  if(level==='strict') return null;
+  const offs = level==='easy'
+    ? [...new Set(kindIds.map(id=>KIND_BY_ID[id].minute*0.5))].sort((a,b)=>a-b)
+    : [0,7.5,15,22.5];
+  const stops=[];
+  for(let h=0;h<12;h++) for(const o of offs) stops.push(norm(h*30+o));
+  return stops.sort((a,b)=>a-b);
+}
+function snapHour(angle, stops){
+  if(!stops) return norm(Math.round(norm(angle)/1.5)*1.5);   // 严格档也做 1.5° 细吸附，纯粹防手抖
+  let best=stops[0], bd=Infinity;
+  for(const s of stops){ const d=angDist(angle,s); if(d<bd){bd=d;best=s;} }
+  return best;
+}
+// 宽松档：除了精确的目标角度，「时针指死在整点数字」也算对（例如「6 时半」，时针停在
+// 正 6 的位置也算过关，不用一定要停在 6 和 7 中间）——2026-08-14 老师课堂实测后明确要求，
+// 宽松是给还没建立「半点时针要往前走」这个概念的学生用的最低门槛；标准/严格两档不受影响，
+// 仍然要求精确位置，难度曲线从「认得整点数字」到「懂半点要往前挪」到「真的拨准」
+const hourOK = (mine,target,level,questionHour)=>{
+  if(angDist(mine,target) <= (level==='strict'?STRICT_TOL:0.01)) return true;
+  if(level==='easy' && questionHour!=null){
+    const floor = norm((questionHour%12)*30);
+    return angDist(mine,floor) < 0.01;
+  }
+  return false;
+};
+const minuteOK = (mine,target)=> angDist(mine,target) < 0.01;
+
+/* 钟面外圈的正解指标（画在木框上，不占表盘）。
+   「一刻」这类题目，学生的时针跟正解只差 7.5°，两根针几乎完全叠在一起，
+   光靠虚线根本看不出差别——最该被看懂的地方反而最看不清。 */
+const RimMark = ({angle})=>(
+  <g transform={`rotate(${angle})`}>
+    <polygon points="0,-101 -7,-114 7,-114" fill="var(--ok)" stroke="#FFF8EC" strokeWidth="1.6" strokeLinejoin="round"/>
+  </g>
+);
+
+function Clock({hour, minute, onChange, locked, guides, ghost, shake, stops, uid='c'}){
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);
+  const [dragging,setDragging] = useState(false);
+  const id = (n)=>`${n}-${uid}`;
+
+  const toLocal = useCallback((e)=>{
+    const el = svgRef.current; if(!el) return null;
+    const r = el.getBoundingClientRect();
+    const scale = VB / r.width;
+    return {x:(e.clientX-r.left-r.width/2)*scale, y:(e.clientY-r.top-r.height/2)*scale};
+  },[]);
+  const angleOf = (p)=> norm(Math.atan2(p.x, -p.y)*180/Math.PI);
+
+  /* 抓哪一根针：小孩子拖不动 4.5 单位宽的细线，所以视觉线宽照钟面规格走，
+     命中另外判——先看有没有抓到某个握把，没有的话按触点离圆心的远近分。 */
+  const pick = (p)=>{
+    const [hx,hy] = tipXY(hour, HOUR_KNOB);
+    const [mx,my] = tipXY(minute, MIN_KNOB);
+    const dh = Math.hypot(p.x-hx, p.y-hy), dm = Math.hypot(p.x-mx, p.y-my);
+    if(dh<=17 || dm<=17) return dh<=dm ? 'h' : 'm';
+    const r = Math.hypot(p.x,p.y);
+    if(r < 12) return null;
+    return r < (HOUR_KNOB+MIN_KNOB)/2 ? 'h' : 'm';
+  };
+  const apply = (which, ang)=> onChange(which, which==='h' ? snapHour(ang, stops)
+                                                           : norm(Math.round(norm(ang)/SNAP_MIN)*SNAP_MIN));
+  const down = (e)=>{
+    if(locked) return;
+    const p = toLocal(e); if(!p) return;
+    const which = pick(p); if(!which) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {which, pointerId:e.pointerId};
+    setDragging(true);
+    apply(which, angleOf(p));
+  };
+  const move = (e)=>{
+    const d = dragRef.current;
+    if(!d || d.pointerId!==e.pointerId || locked) return;
+    const p = toLocal(e); if(!p) return;
+    if(Math.hypot(p.x,p.y) < 12) return;
+    e.preventDefault();
+    apply(d.which, angleOf(p));
+  };
+  const up = (e)=>{
+    const d = dragRef.current;
+    if(d && d.pointerId===e.pointerId){ dragRef.current=null; setDragging(false); }
+  };
+
+  const ticks=[], nums=[];
+  for(let i=0;i<60;i++){
+    if(i%5===0){
+      ticks.push(<line key={'M'+i} x1="0" y1={-R*0.94} x2="0" y2={-R*0.82} transform={`rotate(${i*6})`}
+        stroke="#4A3320" strokeWidth={R*0.022} strokeLinecap="round"/>);
+    }else{
+      ticks.push(<line key={'m'+i} x1="0" y1={-R*0.94} x2="0" y2={-R*0.88} transform={`rotate(${i*6})`}
+        stroke="#8A7255" strokeWidth={R*0.008} strokeLinecap="round"/>);
+    }
+  }
+  for(let i=0;i<12;i++){
+    const a=(i*30-90)*Math.PI/180, n=i===0?12:i;
+    nums.push(<text key={'t'+i} className="num" x={Math.cos(a)*R*0.70} y={Math.sin(a)*R*0.70}
+      textAnchor="middle" dominantBaseline="central" fontSize={2*R*0.085} fill="#3B2716">{n}</text>);
+  }
+  // 木框上的年轮：半径递减、圆心随机微偏，模拟树木横切面（照 STYLES.md 07 的技法 1）
+  const rings=[];
+  for(let i=0;i<7;i++){
+    const rr = 103 + i*2.4;
+    rings.push(<circle key={'r'+i} cx={(i%3-1)*1.6} cy={(i%2?1:-1)*1.2} r={rr}
+      fill="none" stroke="#5A3A1E" strokeWidth={i%2?0.8:1.3} opacity={i%2?0.16:0.24}/>);
+  }
+  // 辅助：只亮时针当下那一个小时格
+  const guideMarks=[];
+  if(guides){
+    const base = Math.floor(norm(hour)/30)*30;
+    const GR = HOUR_LEN + 8;
+    const [x0,y0] = tipXY(base, GR), [x1,y1] = tipXY(base+30, GR);
+    guideMarks.push(<path key="wedge" d={`M 0 0 L ${x0.toFixed(2)} ${y0.toFixed(2)} A ${GR} ${GR} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`}
+      fill="#8A7255" opacity=".15"/>);
+    for(let k=0;k<=4;k++){
+      const edge = k===0 || k===4;
+      guideMarks.push(<line key={'g'+k} x1="0" y1={-GR} x2="0" y2={-(GR-(edge?11:7))}
+        transform={`rotate(${base+k*7.5})`} stroke="#5A452C"
+        strokeWidth={edge?2.4:1.6} opacity={edge?.5:.32} strokeLinecap="round"/>);
+    }
+  }
+
+  const smooth = dragging ? 'none' : 'transform .22s cubic-bezier(.34,1.35,.64,1)';
+  // 软胶指针：圆柱受光（左亮右暗）+ 尖端白色高光 + 下方位移的贴面阴影
+  const Hand = ({angle,len,w,grad,label,knobAt,knobFill,opacity=1,dashed=false})=>(
+    <g transform={`rotate(${angle})`} opacity={opacity} style={{transition:smooth}}>
+      <line x1="0" y1={w*1.6} x2="0" y2={-len} stroke={dashed?'var(--ok)':`url(#${grad})`}
+        strokeWidth={w} strokeLinecap="round" strokeDasharray={dashed?'7 6':undefined}/>
+      {!dashed && <line x1={-w*0.26} y1={-len*0.34} x2={-w*0.26} y2={-len*0.86}
+        stroke="rgba(255,255,255,.45)" strokeWidth={w*0.16} strokeLinecap="round"/>}
+      {/* 可拖动时握把轻轻「呼吸」——不用文字就能让第一次玩的学生（或老师）
+          看懂「这里可以摸」，比一段说明文字更直觉，且每一题都在，不只是第一次 */}
+      {knobAt && !dashed && !locked &&
+        <circle cx="0" cy={-knobAt} r="8.6" fill="none" stroke="var(--gold-500)" strokeWidth="2" opacity="0">
+          <animate attributeName="r" values="8.6;13.5;8.6" dur="1.7s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0;.6;0" dur="1.7s" repeatCount="indefinite"/>
+        </circle>}
+      {knobAt && <>
+        <circle cx="0" cy={-knobAt} r="8.6" fill={knobFill}/>
+        <circle cx="0" cy={-knobAt} r="8.6" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="1.3"/>
+        {/* 握把上的字要反向转回来，否则会跟着指针一起躺平 */}
+        <text x="0" y={-knobAt} transform={`rotate(${-angle} 0 ${-knobAt})`} textAnchor="middle"
+              dominantBaseline="central" fontSize="8.4" fontWeight="800" fill="#fff"
+              style={{textShadow:'0 1px 1px rgba(0,0,0,.5)'}}>{label}</text>
+      </>}
+    </g>
+  );
+
+  return (
+    <svg ref={svgRef} className={'clockbox'+(shake?' shake':'')} viewBox={`${-VB/2} ${-VB/2} ${VB} ${VB}`}
+         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+         role="img" aria-label="可以拨动的教具钟">
+      <defs>
+        {/* 木框斜面：左上亮、右下暗（全画面统一光源） */}
+        <radialGradient id={id('rim')} cx="32%" cy="28%" r="80%">
+          <stop offset="0%" stopColor="#E4BD8F"/><stop offset="45%" stopColor="#C68958"/>
+          <stop offset="78%" stopColor="#95602F"/><stop offset="100%" stopColor="#5A3A1E"/>
+        </radialGradient>
+        <radialGradient id={id('dial')} cx="38%" cy="32%" r="78%">
+          <stop offset="0%" stopColor="#FFFCF6"/><stop offset="55%" stopColor="#FBF1E1"/>
+          <stop offset="100%" stopColor="#EAD2AC"/>
+        </radialGradient>
+        <radialGradient id={id('metal')} cx="32%" cy="26%" r="80%">
+          <stop offset="0%" stopColor="#F6F8FA"/><stop offset="45%" stopColor="#AEB6C0"/>
+          <stop offset="100%" stopColor="#4B505A"/>
+        </radialGradient>
+        {/* ⚠️ 指针是垂直线（x1==x2），bbox 宽度为 0，用 objectBoundingBox 的渐层会整根消失，
+            所以一律用 userSpaceOnUse 指定实际座标 */}
+        <linearGradient id={id('hh')} gradientUnits="userSpaceOnUse" x1={-HOUR_W} y1="0" x2={HOUR_W} y2="0">
+          <stop offset="0%" stopColor="#8FBBF6"/><stop offset="45%" stopColor="#2E86DE"/>
+          <stop offset="100%" stopColor="#154C86"/>
+        </linearGradient>
+        <linearGradient id={id('mh')} gradientUnits="userSpaceOnUse" x1={-MIN_W} y1="0" x2={MIN_W} y2="0">
+          <stop offset="0%" stopColor="#FAC3CD"/><stop offset="45%" stopColor="#E8546B"/>
+          <stop offset="100%" stopColor="#A8384E"/>
+        </linearGradient>
+        <radialGradient id={id('kh')} cx="34%" cy="28%" r="80%">
+          <stop offset="0%" stopColor="#AED2FB"/><stop offset="55%" stopColor="#2E86DE"/><stop offset="100%" stopColor="#0B3560"/>
+        </radialGradient>
+        <radialGradient id={id('km')} cx="34%" cy="28%" r="80%">
+          <stop offset="0%" stopColor="#FBC3CE"/><stop offset="55%" stopColor="#E8546B"/><stop offset="100%" stopColor="#611B29"/>
+        </radialGradient>
+        {/* 木纹噪点：防止木框色块过于干净 */}
+        <filter id={id('grain')} x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed={uid==='b'?11:5} result="n"/>
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.5 0.5 0.5 0 0"/>
+        </filter>
+        <filter id={id('soft')} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="3"/>
+        </filter>
+        <filter id={id('hs')} x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="2.4" dy="3.2" stdDeviation="1.6" floodColor="#3C230C" floodOpacity=".55"/>
+        </filter>
+        <clipPath id={id('rimclip')}>
+          <path fillRule="evenodd" d={`M 0,${-RIM} a ${RIM},${RIM} 0 1,0 0.1,0 Z M 0,${-R} a ${R},${R} 0 1,1 -0.1,0 Z`}/>
+        </clipPath>
+      </defs>
+
+      {/* 木框 */}
+      <circle cx="0" cy="0" r={RIM} fill={`url(#${id('rim')})`}/>
+      <g clipPath={`url(#${id('rimclip')})`}>
+        {rings}
+        <circle cx="0" cy="0" r={RIM} fill="#000" filter={`url(#${id('grain')})`} opacity=".12"/>
+      </g>
+      <circle cx="0" cy="0" r={RIM-1} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="1.6"/>
+
+      {/* 表盘（嵌进木框：交界处一圈模糊深色描边做环境光遮蔽） */}
+      <circle cx="0" cy="0" r={R} fill={`url(#${id('dial')})`}/>
+      <circle cx="0" cy="0" r={R} fill="none" stroke="#4A2F14" strokeWidth="5" opacity=".45" filter={`url(#${id('soft')})`}/>
+      <circle cx="0" cy="0" r={R-2} fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="1.2"/>
+
+      {guideMarks}{ticks}{nums}
+
+      {/* 阴影挂在没有旋转的这一层，方向才固定朝右下（跟全画面同一光源） */}
+      <g filter={`url(#${id('hs')})`}>
+        <Hand angle={hour}   len={HOUR_LEN} w={HOUR_W} grad={id('hh')} label="时" knobAt={HOUR_KNOB} knobFill={`url(#${id('kh')})`}/>
+        <Hand angle={minute} len={MIN_LEN}  w={MIN_W}  grad={id('mh')} label="分" knobAt={MIN_KNOB} knobFill={`url(#${id('km')})`}/>
+      </g>
+
+      {/* 答错时把正确位置叠在最上层，而且只画「拨错的那根」——
+          对的那根再叠一条绿虚线只是噪声，会模糊掉「你错的是时针」这个最该被看见的讯息 */}
+      {ghost && ghost.badH && <>
+        <Hand angle={ghost.h} len={HOUR_LEN} w={HOUR_W+1} dashed/>
+        <RimMark angle={ghost.h}/>
+      </>}
+      {ghost && ghost.badM && <>
+        <Hand angle={ghost.m} len={MIN_LEN} w={MIN_W+1.5} dashed/>
+        <RimMark angle={ghost.m}/>
+      </>}
+
+      {/* 金属轴心：径向渐层 + 螺丝刀缺口 + 镜面高光 */}
+      <circle cx="0" cy="0" r="9" fill={`url(#${id('metal')})`}/>
+      <line x1="-4.6" y1="-2.4" x2="4.6" y2="2.4" stroke="#3A3E47" strokeWidth="2" strokeLinecap="round" opacity=".85"/>
+      <circle cx="-2.6" cy="-3" r="2.1" fill="#fff" opacity=".7"/>
+    </svg>
+  );
+}
+
+/* ================================================================
+   三、阵营标记
+   ================================================================ */
+// ⚠️ 刻意不用 SVG 基本图形拼角色/吉祥物——拼出来的角色只会拉低质感。
+// 队伍辨识改用软胶圆片（纯材质，没有五官），跟整体的玩具质感一致。
+// 真的需要角色时用 draw skill 生图，见 memory feedback-dont-hand-assemble-illustrations
+const Sun  = ({size=24})=> <i className="chip-mark blue"  style={{width:size,height:size}} aria-hidden="true"/>;
+const Moon = ({size=24})=> <i className="chip-mark coral" style={{width:size,height:size}} aria-hidden="true"/>;
+
+/* ================================================================
+   四、成绩与排行榜（Supabase）
+   排行榜依模式分开：对垒有抢答压力、自由作答可以慢慢想，两者不可比。
+   规格见 kongsi-idea/docs/tool-modes-spec.md
+   ================================================================ */
+const hasDB = ()=> typeof supabaseClient !== 'undefined';
+
+// 教室 wifi 常常不稳，请求有机会一直挂着不回应（不是报错，是 pending）。
+// 没有这层超时，画面会永远停在「正在存成绩…」，老师完全不知道发生什么事。
+function withTimeout(promise, ms, label){
+  return Promise.race([promise, new Promise((resolve)=> setTimeout(()=>{
+    console.warn(`${label} 超过 ${ms}ms 没有回应，先放弃`);
+    resolve({data:null, error:{message:'timeout'}});
+  }, ms))]);
+}
+async function submitScore({playCode, classLabel, name, correct, rounds, mode, elapsedMs}){
+  if(!hasDB() || !name) return null;
+  const {data,error} = await withTimeout(supabaseClient.rpc('submit_tahun1_mt_masa_score',{
+    p_play_code: playCode || null, p_class_label: classLabel || '访客',
+    p_name: name, p_score: correct, p_rounds: rounds,
+    p_mode: mode, p_elapsed_ms: mode==='solo' ? (elapsedMs||null) : null,
+  }), 9000, '提交成绩');
+  if(error){ console.warn('提交成绩失败', error); return null; }
+  return data && data[0];
+}
+async function fetchBoard(playCode, mode){
+  if(!hasDB()) return null;
+  let q = supabaseClient.from('tahun1_mt_masa_scores')
+    .select('name,class_label,score,rounds,attempts,play_code,mode,elapsed_ms').eq('mode', mode);
+  if(playCode) q = q.eq('play_code', playCode);
+  const {data,error} = await withTimeout(q.limit(300), 9000, '读取排行榜');
+  if(error){ console.warn('读取排行榜失败', error); return null; }   // null = 读取失败，跟「真的没人交」分得开
+  return (data||[]).sort((a,b)=>{
+    const r = (b.score/b.rounds)-(a.score/a.rounds);
+    if(r) return r;
+    if(mode==='solo') return (a.elapsed_ms??9e9)-(b.elapsed_ms??9e9);
+    return b.rounds-a.rounds || b.score-a.score;
+  }).slice(0,30);
+}
+const fmtTime = (ms)=>{
+  if(ms==null) return '—';
+  const s = Math.round(ms/1000);
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+};
+
+/* ================================================================
+   五、抽签（课堂对垒）
+   规格见 kongsi-idea/docs/tool-modes-spec.md：
+   不重复、用完才重来；两个班就一边一个班；三班以上按顺序两两轮转。
+   ================================================================ */
+function buildPool(roster){
+  const map = new Map();
+  for(const s of roster){
+    const key = s.playCode || '__manual__';
+    if(!map.has(key)) map.set(key, {key, className:s.className||'', students:[], used:[]});
+    map.get(key).students.push(s);
+  }
+  return {classes:[...map.values()], pairIdx:0};
+}
+function takeOne(cls, excludeNames){
+  let avail = cls.students.filter(s=>!cls.used.includes(s.name) && !excludeNames.includes(s.name));
+  if(avail.length===0){                       // 全班都上场过一轮了，池子清空重新开始
+    cls.used = [];
+    avail = cls.students.filter(s=>!excludeNames.includes(s.name));
+  }
+  if(avail.length===0) return null;
+  const pick = avail[Math.floor(Math.random()*avail.length)];
+  cls.used.push(pick.name);
+  return pick;
+}
+function drawPair(pool){
+  const cs = pool.classes;
+  if(cs.length===0) return null;
+  if(cs.length===1){
+    const a = takeOne(cs[0], []);
+    const b = takeOne(cs[0], a?[a.name]:[]);
+    return (a&&b) ? {a, b, ca:0, cb:0} : null;
+  }
+  const i = pool.pairIdx % cs.length, j = (i+1) % cs.length;   // 三班以上按顺序两两轮转
+  pool.pairIdx++;
+  const a = takeOne(cs[i], []), b = takeOne(cs[j], []);
+  return (a&&b) ? {a, b, ca:i, cb:j} : null;
+}
+
+/* ================================================================
+   六、画面
+   ================================================================ */
+/* ---------- 主视觉（开场画面）----------
+   老师反馈：一进来就是整张设定表，没有「这是个游戏」的第一印象。
+   加一个纯视觉的开场：大钟面 + 一句邀请 + 一个按钮，先建立氛围再进设定，
+   不重复顶栏已经有的品牌字，钟面本身就该是唯一的主角。 */
+function HeroScreen({onStart}){
+  // 经典的「10 时 10 分」——手表展示最常用的角度，两针撑开像个笑脸，
+  // 好看又不影射任何一个具体教学时刻，纯粹当装饰用
+  const heroHour = hourAngle(10,10), heroMinute = minuteAngle(10);
+  return <div className="card hero">
+    <div className="hero-clockwrap">
+      <Clock uid="hero" hour={heroHour} minute={heroMinute} onChange={()=>{}} locked guides={false} ghost={null}/>
+    </div>
+    <p className="hero-tag">两个人比赛，看谁先把指针拨对！</p>
+    <button className="btn big hero-cta" onClick={onStart}>开始</button>
+  </div>;
+}
+
+function Question({q, pinyin}){
+  return <span className="q-main">
+    {qTokens(q).map((tk,i)=> (pinyin && tk.p)
+      ? <ruby key={i}>{tk.t}<rt>{tk.p}</rt></ruby>
+      : <span key={i} className={tk.p?'':'num'}>{tk.t}</span>)}
+  </span>;
+}
+function speak(text){
+  try{
+    if(!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN'; u.rate=0.75;
+    window.speechSynthesis.speak(u);
+  }catch(e){ /* 没有中文语音就静默略过 */ }
+}
+
+function Setup({roster, rosterState, cfg, setCfg, onStart}){
+  // 宽容度/题数/辅助开关都有讲得通的默认值，多数老师第一次不会想动。
+  // 跟「要考哪几种时刻」「题目怎么说」这两个直接牵动教学内容的决定放在同一层级，
+  // 会让画面变成五个长得一样的按钮列，反而看不出哪个才是真正要想的——所以收进
+  // 一个预设收起来的「更多设置」，但收起来时旁边留一行当前值摘要，不用展开也看得到状态
+  const [showMore,setShowMore] = useState(false);
+  const levelName = LEVELS.find(l=>l.id===cfg.level).name;
+  const aidsOn = [cfg.pinyin&&'拼音',cfg.guides&&'辅助线',cfg.speak&&'读题'].filter(Boolean);
+  const moreSummary = `${levelName} · ${cfg.rounds} 题 · ${aidsOn.length?aidsOn.join('+'):'辅助全关'}`;
+
+  const toggleKind = (id)=>{
+    const has = cfg.kinds.includes(id);
+    if(has && cfg.kinds.length===1) return;   // 至少要留一种
+    setCfg({...cfg, kinds: has ? cfg.kinds.filter(k=>k!==id) : [...cfg.kinds, id]});
+  };
+  // dropdown 参数要能关掉：班上刚好只有 1 位同学时，n1/n2 这两格如果还硬用下拉选单，
+  // 老师只能重复选同一个名字、打不出真正的第二个玩家名字——那种情况一律逼回手动输入
+  const nameField = (who, placeholder, dropdown=roster.length>0)=> dropdown
+    ? <select value={cfg[who]} onChange={e=>setCfg({...cfg,[who]:e.target.value})}>
+        <option value="">— 选名字 —</option>
+        {roster.map((s,i)=><option key={i} value={s.name}>{s.seatNo?`${s.seatNo}. `:''}{s.name}</option>)}
+      </select>
+    : <input value={cfg[who]} onChange={e=>setCfg({...cfg,[who]:e.target.value})} placeholder={placeholder} maxLength={12}/>;
+
+  // 抽签至少要 2 个人才抽得出对手，只有 roster.length>=2 才走自动抽签这条路，
+  // 否则（0 人或刚好 1 人）都要落回手动打名字——门槛跟 App 的 canDraw 保持一致，
+  // 不然会出现「画面显示已就绪，按下去却带着两个空白名字直接开局」的静默故障
+  const canAutoDraw = roster.length>=2;
+  const duelReady = canAutoDraw || (cfg.n1.trim() && cfg.n2.trim());
+  const soloReady = cfg.solo.trim();
+  const ready = cfg.kinds.length>0 && (cfg.mode==='duel' ? duelReady : soloReady);
+
+  return <div className="card setup">
+    <div className="modeswitch">
+      <button className={'modebtn'+(cfg.mode==='duel'?' on':'')} onClick={()=>setCfg({...cfg,mode:'duel'})}>
+        <b>课堂对垒</b><span>两个学生上台，自动抽签决定谁对谁</span>
+      </button>
+      <button className={'modebtn'+(cfg.mode==='solo'?' on':'')} onClick={()=>setCfg({...cfg,mode:'solo'})}>
+        <b>自由作答</b><span>一个人练习，记录答对几题、用了多久</span>
+      </button>
+    </div>
+
+    {cfg.mode==='duel' ? <>
+      <p className="hint">
+        两个人看同一道题，各自把自己那边的<b>时针</b>和<b>分针</b>拨到对的位置，然后按「拨好了」。<br/>
+        先拨对的得 <b>2 分</b>，后拨对的得 <b>1 分</b>。拨错不扣分，但这一题就不能再改了。
+      </p>
+      {canAutoDraw
+        ? <div className="rosterbox">
+            <b>抽签名单已就绪</b>
+            <span>{rosterState}下一页会自动抽出这一局的两位同学，抽过的不会再抽到，全班轮完一遍才重新开始。</span>
+          </div>
+        : <>
+            <div className="players">
+              <div className="pslot p1"><label><Sun size={22}/>蓝队</label>{nameField('n1','蓝队的名字',false)}</div>
+              <div className="pslot p2"><label><Moon size={22}/>红队</label>{nameField('n2','红队的名字',false)}</div>
+            </div>
+            {roster.length===1
+              ? <p className="hint" style={{margin:'10px 0 0'}}>这个班的名单只有 1 位同学，人数不够自动抽签，直接手动打两个名字开始吧。</p>
+              : <>
+                  {/* rosterState 自己已经说清楚「找不到/读失败/直接打名字」，
+                      跟下面这句静态说明分成两行、不再合并成一段——原本合并的写法
+                      在 rosterState 已含「直接打名字」时会跟这句意思重复，读起来像乱码 */}
+                  <p className="hint" style={{margin:'10px 0 0'}}>{rosterState}</p>
+                  <p className="hint" style={{margin:'2px 0 0'}}>有班级名单（至少 2 人）的话会自动改成抽签，不用每次手打名字。</p>
+                </>}
+          </>}
+    </> : <>
+      <p className="hint">
+        一个人练习，没有对手也没有抢答压力。把<b>时针</b>和<b>分针</b>都拨对再按「拨好了」，
+        最后会告诉你答对几题、用了多久。
+      </p>
+      <div className="pslot p1" style={{maxWidth:360}}>
+        <label><Sun size={22}/>你的名字</label>{nameField('solo','打你的名字')}
+      </div>
+      <p className="hint" style={{margin:'10px 0 0'}}>{rosterState}</p>
+    </>}
+
+    <div className="field">
+      <b>要考哪几种时刻</b>
+      <span>对应 DSKP 一年级 5.2「确认讲述半、一刻、三刻」。刚教完整时就只勾整时，之后再一种一种加上去。</span>
+      <div className="optrow">
+        {KINDS.map(k=><button key={k.id} className={'chip'+(cfg.kinds.includes(k.id)?' on':'')} onClick={()=>toggleKind(k.id)}>{k.name}</button>)}
+      </div>
+    </div>
+
+    <div className="field">
+      <b>题目怎么说</b>
+      <span>课本两种讲法都会出现。「两种都出」可以让学生知道「4 时一刻」和「4 时 15 分」是同一个时刻。</span>
+      <div className="optrow">
+        {[['mix','两种都出'],['ke','一刻 / 三刻'],['min','15 分 / 45 分']].map(([v,t])=>
+          <button key={v} className={'chip mini'+(cfg.wording===v?' on':'')} onClick={()=>setCfg({...cfg,wording:v})}>{t}</button>)}
+      </div>
+    </div>
+
+    <button type="button" className="morebtn" onClick={()=>setShowMore(s=>!s)} aria-expanded={showMore}>
+      <span className="morebtn-l">更多设置</span>
+      <span className="morebtn-sum">{moreSummary}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"
+           strokeLinecap="round" strokeLinejoin="round" style={{transform:showMore?'rotate(180deg)':'none',transition:'transform .2s'}}>
+        <path d="M6 9l6 6 6-6"/>
+      </svg>
+    </button>
+
+    {showMore && <>
+      <div className="field">
+        <b>时针要多准才算对</b>
+        <span>{LEVELS.find(l=>l.id===cfg.level).desc}。拨到接受范围内就算对，指针会自己走到精确位置。</span>
+        <div className="optrow">
+          {LEVELS.map(l=><button key={l.id} className={'chip mini'+(cfg.level===l.id?' on':'')} onClick={()=>setCfg({...cfg,level:l.id})}>{l.name}</button>)}
+        </div>
+      </div>
+
+      <div className="field">
+        <b>几题</b>
+        <div className="optrow">
+          {[6,8,10,12].map(n=><button key={n} className={'chip mini'+(cfg.rounds===n?' on':'')} onClick={()=>setCfg({...cfg,rounds:n})}>{n} 题</button>)}
+        </div>
+      </div>
+
+      <div className="field">
+        <b>辅助设定</b>
+        <div className="optrow">
+          <button className={'chip mini'+(cfg.pinyin?' on':'')} onClick={()=>setCfg({...cfg,pinyin:!cfg.pinyin})}>题目标拼音</button>
+          <button className={'chip mini'+(cfg.guides?' on':'')} onClick={()=>setCfg({...cfg,guides:!cfg.guides})}>钟面显示一刻辅助线</button>
+          <button className={'chip mini'+(cfg.speak?' on':'')} onClick={()=>setCfg({...cfg,speak:!cfg.speak})}>自动读题</button>
+        </div>
+      </div>
+    </>}
+
+    <div style={{marginTop:26,textAlign:'center'}}>
+      <button className="btn big" disabled={!ready} onClick={onStart}>
+        {cfg.mode==='duel' ? (canAutoDraw ? '开始抽签' : '开始对决') : '开始练习'}
+      </button>
+    </div>
+  </div>;
+}
+
+/* ---------- 抽签画面 ---------- */
+function DrawStage({pool, onGo, onBack}){
+  const [pair,setPair] = useState(null);
+  const [roll,setRoll] = useState(null);
+  const timer = useRef(null);
+  const allNames = useMemo(()=>pool.classes.flatMap(c=>c.students.map(s=>s.name)),[pool]);
+
+  const run = useCallback(()=>{
+    const result = drawPair(pool);
+    if(!result){ setPair(null); return; }
+    let t = 0;
+    clearInterval(timer.current);
+    timer.current = setInterval(()=>{
+      setRoll({a: allNames[Math.floor(Math.random()*allNames.length)],
+               b: allNames[Math.floor(Math.random()*allNames.length)]});
+      SFX.drawTick();
+      t += 70;
+      if(t>=1400){ clearInterval(timer.current); setRoll(null); setPair(result); }
+    }, 70);
+  },[pool, allNames]);
+
+  useEffect(()=>{ run(); return ()=>clearInterval(timer.current); },[run]);
+
+  const rolling = roll!==null;
+  const nameA = rolling ? roll.a : (pair? pair.a.name : '');
+  const nameB = rolling ? roll.b : (pair? pair.b.name : '');
+  const clsA = pair ? pool.classes[pair.ca] : null;
+  const clsB = pair ? pool.classes[pair.cb] : null;
+
+  return <div className="card setup" style={{textAlign:'center'}}>
+    <h2>这一局是谁上场</h2>
+    <p className="hint" style={{textAlign:'center'}}>抽过的同学不会再被抽到，全班轮完一遍才重新开始。</p>
+    <div className="drawrow">
+      <div className={'drawcard p1'+(rolling?' rolling':'')}>
+        <Sun size={34}/>
+        <div className="drawname">{nameA || '—'}</div>
+        <div className="drawclass">{clsA ? (clsA.className||'蓝队') : '蓝队'}</div>
+      </div>
+      <div className="vs">VS</div>
+      <div className={'drawcard p2'+(rolling?' rolling':'')}>
+        <Moon size={34}/>
+        <div className="drawname">{nameB || '—'}</div>
+        <div className="drawclass">{clsB ? (clsB.className||'红队') : '红队'}</div>
+      </div>
+    </div>
+    <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap',marginTop:22}}>
+      <button className="btn" disabled={rolling || !pair} onClick={()=>onGo(pair)}>开始对决</button>
+      <button className="btn ghost" disabled={rolling} onClick={run}>重抽</button>
+      <button className="btn ghost" onClick={onBack}>回设定</button>
+    </div>
+    {!rolling && !pair && <p className="hint" style={{textAlign:'center',marginTop:14}}>名单人数不够，至少要两位同学才能对垒。</p>}
+  </div>;
+}
+
+/* ---------- 对战 / 练习 ---------- */
+const emptyPlayer = ()=>({points:0, correct:0});
+
+function Play({cfg, names:initialNames, pool, onNamesChange, onFinish}){
+  const solo = cfg.mode==='solo';
+  const stops = useMemo(()=>hourStops(cfg.kinds, cfg.level), [cfg.kinds, cfg.level]);
+  // 课堂对垒 + 有名单可抽签时，每一轮换新的两位同学上场（老师课堂实测后明确要求：
+  // 不要让同一对占满整场，多题就该多几个孩子有机会摸到）。分数继续累计在
+  // 「蓝队/红队」这两个座位上，不是跟着某个固定学生走——这是刻意的简化：
+  // 座位的分数代表这一整场蓝队/红队座位上的人合起来表现如何，不是单一学生的战绩。
+  // 已知取舍：赛后写进排行榜的名字，用的是最后一轮站在场上的那两位（见 App.finish()）。
+  const [names,setNames]   = useState(initialNames);
+  const [round,setRound]   = useState(1);
+  const [q,setQ]           = useState(()=>makeQuestion(cfg.kinds, cfg.wording));
+  const [a,setA]           = useState(emptyPlayer);
+  const [b,setB]           = useState(emptyPlayer);
+  const [hands,setHands]   = useState({a:{h:0,m:0}, b:{h:0,m:0}});
+  const [state,setState]   = useState({a:'idle', b:'idle'});
+  const [revealed,setRevealed] = useState(false);
+  const [elapsed,setElapsed] = useState(0);
+  const firstRef = useRef(false);
+  const startedAt = useRef(null);
+
+  const target = useMemo(()=>({h:hourAngle(q.hour,q.minute), m:minuteAngle(q.minute)}),[q]);
+
+  const startRound = useCallback((n, nq)=>{
+    const s = makeStart(nq, cfg.kinds);
+    setQ(nq); setHands({a:{...s}, b:{...s}});
+    setState({a:'idle', b:'idle'}); setRevealed(false);
+    firstRef.current=false; setRound(n);
+    if(cfg.speak) setTimeout(()=>speak(qSpeech(nq)), 350);
+  },[cfg.kinds, cfg.speak]);
+
+  useEffect(()=>{
+    startRound(1, makeQuestion(cfg.kinds, cfg.wording));
+    startedAt.current = Date.now();
+    /* eslint-disable-next-line */
+  },[]);
+
+  // 自由作答才计时
+  useEffect(()=>{
+    if(!solo) return;
+    const id = setInterval(()=>setElapsed(Date.now()-startedAt.current), 500);
+    return ()=>clearInterval(id);
+  },[solo]);
+
+  const setHand = (side)=>(which,val)=> setHands(h=>({...h,[side]:{...h[side],[which]:val}}));
+
+  const judge = (side)=>{
+    const mine = hands[side];
+    const badH = !hourOK(mine.h, target.h, cfg.level, q.hour);
+    const badM = !minuteOK(mine.m, target.m);
+    return {ok: !badH && !badM, badH, badM};
+  };
+
+  const submit = (side)=>{
+    if(state[side]!=='idle' || revealed) return;
+    const v = judge(side);
+    const first = v.ok && !firstRef.current;
+    if(v.ok) firstRef.current = true;
+
+    // 答对就把指针自动调整到精确位置（严格档学生可能停在容差内的角度）
+    if(v.ok) setHands(h=>({...h,[side]:{h:target.h, m:target.m}}));
+    v.ok ? SFX.correct() : SFX.wrong();
+
+    const gain = v.ok ? (solo ? 1 : (first?2:1)) : 0;
+    const bump = (p)=>({points:p.points+gain, correct:p.correct+(v.ok?1:0)});
+    (side==='a'?setA:setB)(bump);
+
+    const ns = {...state, [side]: v.ok?'right':'wrong'};
+    setState(ns);
+    if(solo || (ns.a!=='idle' && ns.b!=='idle')) setRevealed(true);
+  };
+
+  const advance = ()=>{
+    if(round >= cfg.rounds){ onFinish({a, b, elapsedMs: Date.now()-startedAt.current}); return; }
+    if(pool){
+      const pair = drawPair(pool);
+      if(pair){
+        const next = {a:pair.a.name, b:pair.b.name};
+        setNames(next);
+        onNamesChange && onNamesChange(next);
+      }
+      // pair 抽不出来（例如名单突然只剩不到 2 人）就沿用上一轮的人，不中断游戏
+    }
+    startRound(round+1, makeQuestion(cfg.kinds, cfg.wording));
+  };
+
+  const wrongWhat = (side)=>{
+    const v = judge(side);
+    if(v.badH && v.badM) return '两根针都要再看看';
+    if(v.badH) return '分针对了，时针还没走到';
+    return '时针对了，分针再看看';
+  };
+
+  const lane = (side, name, cls, Mark)=>{
+    const st = state[side];
+    const v = st==='wrong' ? judge(side) : null;
+    return <div className={'lane '+cls+(st==='right'?' ok':st==='wrong'?' bad':'')}>
+      <div className="who"><Mark size={22}/>{name}</div>
+      <Clock uid={side} hour={hands[side].h} minute={hands[side].m} stops={stops}
+             onChange={setHand(side)} locked={st!=='idle'} guides={cfg.guides}
+             ghost={v?{...target, badH:v.badH, badM:v.badM}:null} shake={st==='wrong'}/>
+      <div className={'verdict'+(st==='right'?' ok':st==='wrong'?' bad':'')}>
+        {st==='right' ? '拨对了！' : st==='wrong' ? wrongWhat(side) : ' '}
+      </div>
+      <button className={'btn '+(cls==='a'?'sun':'moon')} disabled={st!=='idle'} onClick={()=>submit(side)}>拨好了</button>
+    </div>;
+  };
+
+  const nextHour = q.hour===12 ? 1 : q.hour+1;
+  return <>
+    <div className="scorebar">
+      {solo
+        ? <div className="side a"><span className="who-mini"><span className="nm">{names.a}</span><Sun size={20}/></span><span className="pt num">{a.correct}</span></div>
+        : <div className="side a"><span className="who-mini"><span className="nm">{names.a}</span><Sun size={20}/></span><span className="pt num">{a.points}</span></div>}
+      <div className="roundpill">第 {round} / {cfg.rounds} 题{solo && <span className="clock-t"> · {fmtTime(elapsed)}</span>}</div>
+      {solo
+        ? <div className="side b right" style={{visibility:'hidden'}}><span className="pt num">0</span></div>
+        : <div className="side b right"><span className="who-mini"><span className="nm">{names.b}</span><Moon size={20}/></span><span className="pt num">{b.points}</span></div>}
+    </div>
+
+    <div className="question">
+      <div className="q-lead">把钟拨成</div>
+      <Question q={q} pinyin={cfg.pinyin}/>
+      <div className="q-tools"><button className="chip mini" onClick={()=>speak(qSpeech(q))}>再听一次</button></div>
+    </div>
+
+    <div className={'arena'+(solo?' solo':'')}>
+      {lane('a', names.a, 'a', Sun)}
+      {!solo && lane('b', names.b, 'b', Moon)}
+    </div>
+
+    {revealed && <div className="reveal">
+      <div className="ans">答案是 {qLabel(q)}</div>
+      <div className="note">
+        {q.minute===0
+          ? <>分针指着 <b>12</b>，时针<b>刚刚好对准 {q.hour}</b>，没有走过去。</>
+          : <>分针指着 <b>{q.minute/5}</b>。这时候时针<b>已经走过 {q.hour} 了</b>，
+             {q.minute===30
+               ? <>停在 {q.hour} 和 {nextHour} 的<b>正中间</b>。</>
+               : q.minute===15
+                 ? <>停在 {q.hour} 和 {nextHour} 中间、<b>靠近 {q.hour}</b> 的第一小格。</>
+                 : <>停在 {q.hour} 和 {nextHour} 中间、<b>靠近 {nextHour}</b> 的最后一小格。</>}</>}
+      </div>
+      <div className="legend"><span><i style={{background:'var(--ok-text)',opacity:.45}}></i>绿色虚线与三角 = 正确的位置</span></div>
+      <div style={{marginTop:16}}>
+        <button className="btn" onClick={advance}>{round>=cfg.rounds?'看成绩':'下一题'}</button>
+      </div>
+    </div>}
+  </>;
+}
+
+function Result({cfg, names, res, onAgain, onNextPair, onBoard, submitState, canNextPair}){
+  const solo = cfg.mode==='solo';
+  // 一局结束的小凯歌，不分输赢都放（对垒时故意不按赢家挑音效，
+  // 免得对刚打完最后一题的落败一方显得残忍）
+  useEffect(()=>{ SFX.finish(); },[]);
+  if(solo){
+    return <div className="card result">
+      <h2>做完了！</h2>
+      <div className="finals" style={{gridTemplateColumns:'1fr 1fr',maxWidth:520,margin:'20px auto'}}>
+        <div className="final a">
+          <div className="fn"><Sun size={20}/>答对</div>
+          <div className="fp num">{res.a.correct}</div>
+          <div className="fc">共 {cfg.rounds} 题</div>
+        </div>
+        <div className="final b">
+          <div className="fn"><Moon size={20}/>用时</div>
+          <div className="fp num" style={{fontSize:'2rem'}}>{fmtTime(res.elapsedMs)}</div>
+          <div className="fc">平均每题 {fmtTime(Math.round(res.elapsedMs/cfg.rounds))}</div>
+        </div>
+      </div>
+      {submitState && <p className="hint" style={{textAlign:'center'}}>{submitState}</p>}
+      <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+        <button className="btn" onClick={onAgain}>再做一次</button>
+        <button className="btn ghost" onClick={onBoard}>看排行榜</button>
+      </div>
+    </div>;
+  }
+  const winner = res.a.points===res.b.points ? null : (res.a.points>res.b.points?'a':'b');
+  return <div className="card result">
+    <h2>{winner ? `${winner==='a'?names.a:names.b} 赢了！` : '打成平手！'}</h2>
+    <p className="hint" style={{marginBottom:0}}>一共 {cfg.rounds} 题</p>
+    <div className="finals">
+      <div className={'final a'+(winner==='a'?' win':'')}>
+        <div className="fn"><Sun size={20}/>{names.a}</div>
+        <div className="fp num">{res.a.points}</div>
+        <div className="fc">拨对 {res.a.correct} / {cfg.rounds} 题</div>
+      </div>
+      <div className={'final b'+(winner==='b'?' win':'')}>
+        <div className="fn"><Moon size={20}/>{names.b}</div>
+        <div className="fp num">{res.b.points}</div>
+        <div className="fc">拨对 {res.b.correct} / {cfg.rounds} 题</div>
+      </div>
+    </div>
+    {submitState && <p className="hint" style={{textAlign:'center'}}>{submitState}</p>}
+    <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+      {canNextPair && <button className="btn" onClick={onNextPair}>换下一对</button>}
+      <button className="btn ghost" onClick={onAgain}>同一对再来</button>
+      <button className="btn ghost" onClick={onBoard}>看排行榜</button>
+    </div>
+  </div>;
+}
+
+function Board({rows, loading, onBack, onRetry, myNames, scope, setScope, canScope, mode, setMode}){
+  const failed = rows === null;
+  const solo = mode==='solo';
+  return <div className="card setup">
+    <h2>拨钟排行榜</h2>
+    <p className="hint">
+      两种模式分开算——对垒要抢答、自由作答可以慢慢想，成绩不能放在一起比。
+      每个人只留自己最好的一局{solo?'（正确率一样时比谁快）':'（正确率一样时比题数多的）'}。
+    </p>
+    <div className="optrow" style={{marginBottom:12}}>
+      <button className={'chip mini'+(mode==='duel'?' on':'')} onClick={()=>setMode('duel')}>课堂对垒</button>
+      <button className={'chip mini'+(mode==='solo'?' on':'')} onClick={()=>setMode('solo')}>自由作答</button>
+    </div>
+    {canScope && <div className="optrow" style={{marginBottom:14}}>
+      <button className={'chip mini'+(scope==='class'?' on':'')} onClick={()=>setScope('class')}>我们班</button>
+      <button className={'chip mini'+(scope==='all'?' on':'')} onClick={()=>setScope('all')}>全部</button>
+    </div>}
+    {loading ? <p className="hint">读取中…</p> :
+     failed ? <p className="hint">连不上排行榜（可能是网络不稳）。<button className="chip mini" onClick={onRetry} style={{marginLeft:8}}>再试一次</button></p> :
+     rows.length===0 ? <p className="hint">这个模式还没有人交成绩，你们是第一组。</p> :
+     <table className="board">
+       <thead><tr><th>#</th><th>名字</th><th>班级</th><th className="r">拨对</th>{solo && <th className="r">用时</th>}<th className="r">玩过</th></tr></thead>
+       <tbody>{rows.map((r,i)=>
+         <tr key={i} className={myNames.includes(r.name)?'me':''}>
+           <td className="rank num">{i+1}</td>
+           <td style={{fontWeight:700}}>{r.name}</td>
+           <td style={{color:'var(--text-2)',fontSize:'.86rem'}}>{r.class_label}</td>
+           <td className="r num">{r.score}/{r.rounds}</td>
+           {solo && <td className="r num">{fmtTime(r.elapsed_ms)}</td>}
+           <td className="r num" style={{color:'var(--text-2)'}}>{r.attempts}</td>
+         </tr>)}
+       </tbody>
+     </table>}
+    <div style={{marginTop:20,textAlign:'center'}}><button className="btn ghost" onClick={onBack}>返回</button></div>
+  </div>;
+}
+
+/* 记住老师上次的设定（宽容度/题数/辅助开关/时刻/说法/模式），下次打开不用重选一遍——
+   这个工具大概率是同一位老师同一个班反复开，每次都要重新点五六个按钮才是真正的不友善。
+   姓名类栏位（n1/n2/solo）故意不存：换班、换学生用同一台设备是常态，
+   记住上次的名字反而容易让老师忘记改、把分数记到错的学生头上。 */
+const CFG_KEY = 'masa_cfg_v1';
+const DEFAULT_CFG = {
+  mode:'duel', n1:'', n2:'', solo:'',
+  kinds:['oclock','half'], wording:'mix', level:'easy',
+  rounds:8, pinyin:true, guides:true, speak:false,
+};
+function loadCfg(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(CFG_KEY));
+    if(!saved || typeof saved!=='object') return {...DEFAULT_CFG};
+    const kinds = Array.isArray(saved.kinds) ? saved.kinds.filter(k=>KIND_BY_ID[k]) : [];
+    return {
+      ...DEFAULT_CFG,
+      mode: saved.mode==='solo' ? 'solo' : 'duel',
+      kinds: kinds.length ? kinds : DEFAULT_CFG.kinds,
+      wording: ['mix','ke','min'].includes(saved.wording) ? saved.wording : DEFAULT_CFG.wording,
+      level: LEVELS.some(l=>l.id===saved.level) ? saved.level : DEFAULT_CFG.level,
+      rounds: [6,8,10,12].includes(saved.rounds) ? saved.rounds : DEFAULT_CFG.rounds,
+      pinyin: typeof saved.pinyin==='boolean' ? saved.pinyin : DEFAULT_CFG.pinyin,
+      guides: typeof saved.guides==='boolean' ? saved.guides : DEFAULT_CFG.guides,
+      speak: typeof saved.speak==='boolean' ? saved.speak : DEFAULT_CFG.speak,
+    };
+  }catch(e){ return {...DEFAULT_CFG}; }   // 存档格式坏掉/隐私浏览模式读不到，一律退回预设值
+}
+
+/* ================================================================
+   七、主程序
+   ================================================================ */
+function App(){
+  const deepBoard = new URLSearchParams(location.search).get('board')==='1';
+  // 冷启动先看开场主视觉，再一步步进设定；深链 ?board=1 直接跳排行榜不用经过开场
+  const [screen,setScreen] = useState(deepBoard?'board':'hero');
+  const [muted,setMuted] = useState(SFX.muted);
+  const toggleMute = ()=>{ const v=!muted; SFX.setMuted(v); setMuted(v); };
+  const [roster,setRoster] = useState([]);
+  const [rosterState,setRosterState] = useState('正在找班级名单…');
+  const [cfg,setCfg] = useState(loadCfg);
+  useEffect(()=>{
+    try{ const {n1,n2,solo, ...rest} = cfg; localStorage.setItem(CFG_KEY, JSON.stringify(rest)); }catch(e){}
+  },[cfg]);
+  const [names,setNames] = useState({a:'', b:''});
+  const [res,setRes] = useState(null);
+  const [submitState,setSubmitState] = useState('');
+  const [rows,setRows] = useState([]);
+  const [loadingBoard,setLoadingBoard] = useState(false);
+  const [scope,setScope] = useState('class');
+  const [boardMode,setBoardMode] = useState('duel');
+  const [gameKey,setGameKey] = useState(0);
+  const poolRef = useRef(null);
+
+  const playCode   = roster.length>0 ? roster[0].playCode : null;
+  const classLabel = roster.length>0 ? (roster[0].className || '访客') : '访客';
+  const canDraw    = cfg.mode==='duel' && roster.length>=2;
+
+  useEffect(()=>{
+    let alive = true;
+    (async()=>{
+      try{
+        if(typeof ClassCode === 'undefined'){ if(alive) setRosterState('（没连上班级名单，直接打名字就好）'); return; }
+        const list = await ClassCode.loadOrPrompt();
+        if(!alive) return;
+        if(list && list.length>0){
+          setRoster(list);
+          poolRef.current = buildPool(list);
+          const classCount = new Set(list.map(s=>s.playCode)).size;
+          setRosterState(`已经读到 ${classCount>1?`${classCount} 个班共 `:''}${list.length} 位同学。`);
+        }else{
+          setRosterState('（没有班级代码，直接打名字就好）');
+        }
+      }catch(e){ if(alive) setRosterState('（班级名单读取失败，直接打名字就好）'); }
+    })();
+    return ()=>{alive=false};
+  },[]);
+
+  const loadBoard = useCallback(async(sc, md)=>{
+    setLoadingBoard(true);
+    setRows(await fetchBoard(sc==='class' ? playCode : null, md));
+    setLoadingBoard(false);
+  },[playCode]);
+  useEffect(()=>{ if(screen==='board') loadBoard(scope, boardMode); },[screen,scope,boardMode,loadBoard]);
+
+  const startFromSetup = ()=>{
+    setSubmitState('');
+    if(cfg.mode==='solo'){
+      setNames({a:cfg.solo.trim(), b:''});
+      setGameKey(k=>k+1); setScreen('play');
+    }else if(canDraw){
+      setScreen('draw');
+    }else{
+      setNames({a:cfg.n1.trim(), b:cfg.n2.trim()});
+      setGameKey(k=>k+1); setScreen('play');
+    }
+  };
+
+  const finish = async(r)=>{
+    setRes(r); setScreen('result');
+    setBoardMode(cfg.mode);
+    if(!hasDB()){ setSubmitState(''); return; }
+    setSubmitState('正在存成绩…');
+    const common = {playCode, classLabel, rounds:cfg.rounds, mode:cfg.mode, elapsedMs:r.elapsedMs};
+    const jobs = cfg.mode==='solo'
+      ? [submitScore({...common, name:names.a, correct:r.a.correct})]
+      : [submitScore({...common, name:names.a, correct:r.a.correct}),
+         submitScore({...common, name:names.b, correct:r.b.correct})];
+    const done = await Promise.all(jobs);
+    setSubmitState(done.some(Boolean) ? '成绩已经存进排行榜了。' : '（这次没能存上排行榜，成绩还是算数的）');
+  };
+
+  return <div className="wrap">
+    <div className="topbar">
+      <div className="brand display">时刻大对决<small>PUKUL &amp; WAKTU · TAHUN 1</small></div>
+      <div className="spacer"></div>
+      <button className="iconbtn" title={muted?'打开声音':'关闭声音'} onClick={toggleMute}>
+        {muted
+          ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 9v6h4l5 4V5L8 9H4z"/><line x1="16" y1="9" x2="21" y2="14"/><line x1="21" y1="9" x2="16" y2="14"/>
+            </svg>
+          : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7"/><path d="M19 6a8.5 8.5 0 010 12"/>
+            </svg>}
+      </button>
+      {screen!=='hero' && screen!=='setup' && screen!=='board' && <button className="iconbtn" title="回到开始" onClick={()=>setScreen('setup')}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>
+      </button>}
+      {screen!=='board' && <button className="iconbtn" title="排行榜" onClick={()=>setScreen('board')}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4v-7H4zM10 20h4V4h-4zM16 20h4v-11h-4z"/></svg>
+      </button>}
+    </div>
+
+    {screen==='hero' && <HeroScreen onStart={()=>setScreen('setup')}/>}
+
+    {screen==='setup' && <Setup roster={roster} rosterState={rosterState} cfg={cfg} setCfg={setCfg} onStart={startFromSetup}/>}
+
+    {screen==='draw' && poolRef.current &&
+      <DrawStage pool={poolRef.current} onBack={()=>setScreen('setup')}
+        onGo={(pair)=>{ setNames({a:pair.a.name, b:pair.b.name}); setSubmitState(''); setGameKey(k=>k+1); setScreen('play'); }}/>}
+
+    {screen==='play' && <Play key={gameKey} cfg={cfg} names={names}
+        pool={cfg.mode==='duel' && canDraw ? poolRef.current : null}
+        onNamesChange={setNames} onFinish={finish}/>}
+
+    {screen==='result' && res && <Result cfg={cfg} names={names} res={res} submitState={submitState}
+        canNextPair={canDraw}
+        onNextPair={()=>{ setSubmitState(''); setScreen('draw'); }}
+        onAgain={()=>{ setSubmitState(''); setGameKey(k=>k+1); setScreen('play'); }}
+        onBoard={()=>setScreen('board')}/>}
+
+    {screen==='board' && <Board rows={rows} loading={loadingBoard} myNames={[names.a,names.b].filter(Boolean)}
+        scope={scope} setScope={setScope} canScope={!!playCode} mode={boardMode} setMode={setBoardMode}
+        onRetry={()=>loadBoard(scope, boardMode)} onBack={()=>setScreen(res?'result':'setup')}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+</script>
+</body>
+</html>
