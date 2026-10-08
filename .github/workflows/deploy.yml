@@ -1,0 +1,20 @@
+# push 到 main 就自动生产部署到 Vercel（Hobby 套餐不能用 Vercel 的 Git 集成连私有组织仓库，所以走 GitHub Actions）
+# 需要 GitHub 组织 Secret：VERCEL_TOKEN。ORG_ID／PROJECT_ID 不是机密，可写在这里。
+# 失灵时后备：teaching-tools 里 `npm run deploy -- <slug>`
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: team_v1qC6zXVcHHvI99nEZGuFCkF
+      VERCEL_PROJECT_ID: prj_FTkHimeE5zf0kCDqRM9QCvgeCotF
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx --yes vercel@56 deploy --prod --yes --token "${{ secrets.VERCEL_TOKEN }}"
