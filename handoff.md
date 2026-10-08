@@ -229,3 +229,12 @@ node test-edge-cases.mjs   # 边界情况：22 项，名单人数不够/静音�
   ①「每轮换学生」的排行榜记名字方式没拍板　②真机实测确认
 - Git：本机独立仓库已有一个 commit（`0dd976d`，2026-08-24），**没有 remote、没有推送**——
   这不算部署，只是把代码存成可回滚的版本点；真要部署时才需要 `gh repo create` + `git push`
+
+## 🚀 上线状态（2026-10-08）
+
+- 已部署：https://tahun1-mt-masa.vercel.app（Vercel 项目 `kongsi-idea/tahun1-mt-masa`），GitHub：kongsi-idea/tahun1-mt-masa。
+- 已上架点子铺 v1.0（含 `hasLeaderboard`）；`standards` 刻意没填（DSKP 马来文用词未核对）。
+- 老师 10-08 说「部署上线」，**一体机真机实测还没做**（手感、音效音量、钟面大小），实测后回报。
+- 待老师定：对垒每轮换人后排行榜只记最后一轮的两位，是否改成每轮都记。
+- 测试脚本要补：线上 `ClassCode` 没班级代码时会弹全屏对话框，要先点「暂不选班」，否则 `.hero-cta` 被挡（原样跑会失败）。**测试会写线上排行榜**：10-08 验收时留下 `独行侠`（solo×2）与 `测试1I` 班的 3 笔对垒，待老师决定是否清理。
+- 手机直立对垒页「题目被滚出屏幕」是 Playwright 点击自动滚动造成，scrollTo(0,0) 后题目在首屏，不是 bug。
