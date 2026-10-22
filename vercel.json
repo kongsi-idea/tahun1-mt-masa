@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)\\.(mp3|m4a|ogg|wav|png|jpg|jpeg|webp|gif|svg|woff2|woff|ttf|otf|wasm|task)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    }
+  ]
+}
